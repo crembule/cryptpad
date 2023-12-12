@@ -83,6 +83,7 @@ define([
                                 h('input.form-control#password', {
                                     type: 'password',
                                     placeholder: Msg.login_password,
+                                    autocomplete: "new-password"
                                 }),
                             ]),
                             h('div.input-container', [
@@ -90,6 +91,7 @@ define([
                                 h('input.form-control#password-confirm', {
                                     type: 'password',
                                     placeholder: Msg.login_confirm,
+                                    autocomplete: "new-password"
                                 }),
                             ]),
                         ]),

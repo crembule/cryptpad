@@ -103,7 +103,8 @@ define([
     // we'll consider increasing this restriction if people are unhappy with it
     // but as a general rule we expect users will appreciate having simpler questions
     var MAX_OPTIONS = 25;
-    var MAX_ITEMS = 10;
+    var MAX_ITEMS = 25;
+
 
     var getOptionValue = function (obj) {
         if (!Util.isObject(obj)) { return obj; }
@@ -4634,6 +4635,12 @@ define([
         var priv = metadataMgr.getPrivateData();
         APP.isEditor = Boolean(priv.form_public);
         var $body = $('body');
+
+        if (priv.devMode) {
+            MAX_OPTIONS = 10000;
+            MAX_ITEMS = 10000;
+        }
+
 
         var $toolbarContainer = $('#cp-toolbar');
 
