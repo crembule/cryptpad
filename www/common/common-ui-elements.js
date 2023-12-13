@@ -1758,6 +1758,8 @@ define([
             return $($all.get(next));
         };
         $container.keydown(function (e) {
+            e.stopPropagation(); // don't propagate event to window if the dropdown is focused
+
             var visible = $innerblock.is(':visible');
             var $value = $innerblock.find('li:focus');
             if (!visible && [38,40].includes(e.which) && !config.isSelect) {
@@ -1767,7 +1769,6 @@ define([
             if (!visible) { return; }
             if (e.which === 38) { // Up
                 e.preventDefault();
-                e.stopPropagation();
                 var $prev;
                 if (!$value.length) {
                     $prev = getAll().last();
@@ -1782,7 +1783,6 @@ define([
             }
             if (e.which === 40) { // Down
                 e.preventDefault();
-                e.stopPropagation();
                 var $next;
                 if (!$value.length) {
                     $next = getAll().first();
@@ -1797,7 +1797,6 @@ define([
             }
             if (e.which === 13 || e.which === 32) { //Enter or space
                 e.preventDefault();
-                e.stopPropagation();
                 if ($value.length) {
                     $value.click();
                     hide();
@@ -1808,12 +1807,11 @@ define([
             }
             if (e.which === 27) { // Esc
                 e.preventDefault();
-                e.stopPropagation();
                 $value.mouseleave();
                 hide();
                 $button.focus();
             }
-            if (e.which === 9) {
+            if (e.which === 9) { // Tab
                 hide();
                 if (e.shiftKey) {
                     $button.focus();
@@ -1823,6 +1821,7 @@ define([
             }
         });
         $container.keypress(function (e) {
+            e.stopPropagation(); // Don't propagate to window
             window.clearTimeout(to);
             var c = String.fromCharCode(e.which);
             pressed += c;
@@ -3009,7 +3008,7 @@ define([
         if (err.type === 'EEXPIRED') {
             msg = Messages.expiredError;
             if (err.loaded) {
-                // XXX You can still use the current version in read-only mode by pressing Esc.
+                // You can still use the current version in read-only mode by pressing Esc.
                 // what if they don't have a keyboard (ie. mobile)
                 msg += Messages.errorCopy;
             }
@@ -3033,7 +3032,7 @@ define([
                 });
             }
             if (err.message && (err.message !== "PASSWORD_CHANGE" || viewer)) {
-                // XXX If readonly, tell the viewer that their link won't work with the new password
+                // If readonly, tell the viewer that their link won't work with the new password
                 UI.errorLoadingScreen(UI.getDestroyedPlaceholder(err.message, false),
                     exitable, exitable);
                 return;
