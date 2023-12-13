@@ -1724,6 +1724,8 @@ define([
             var $value = $();
             $innerblock.find('[role="menuitem"]').each((i, el) => {
                 var $el = $(el);
+                var $item = $el.find('> *');
+                if ($item.length && !$item.is(':visible')) { return false; }
                 var text = $el.text().toLowerCase();
                 var p = pressed.toLowerCase();
                 if (text.indexOf(p) === 0) {
@@ -1733,24 +1735,27 @@ define([
             });
             return $value;
         };
+        var getAll = () => {
+            return $innerblock.find('[role="menuitem"]').filter((i, el) => {
+                var $item = $(el).find('> *');
+                return !$item.length || $item.is(':visible');
+            });
+        };
         var getPrev = ($el) => {
-            var $all = $innerblock.find('[role="menuitem"]');
+            var $all = getAll();
             if (!$all.length) { return $(); }
             var idx = $all.index($el[0]);
             if (idx === -1) { return $(); }
-            var prev = ($all.length + idx - 1) % $all.length;
+            var prev = (idx - 1 + $all.length) % $all.length;
             return $($all.get(prev));
         };
         var getNext = ($el) => {
-            var $all = $innerblock.find('[role="menuitem"]');
+            var $all = getAll();
             if (!$all.length) { return $(); }
             var idx = $all.index($el[0]);
             if (idx === -1) { return $(); }
             var next = (idx + 1) % $all.length;
             return $($all.get(next));
-        };
-        var getFirst = () => {
-            return $innerblock.find('[role="menuitem"]').first();
         };
         $container.keydown(function (e) {
             var visible = $innerblock.is(':visible');
@@ -1765,7 +1770,7 @@ define([
                 e.stopPropagation();
                 var $prev;
                 if (!$value.length) {
-                    $prev = $innerblock.find('[role="menuitem"]').last();
+                    $prev = getAll().last();
                 } else {
                     $prev = getPrev($value);
                 }
@@ -1780,7 +1785,7 @@ define([
                 e.stopPropagation();
                 var $next;
                 if (!$value.length) {
-                    $next = $innerblock.find('[role="menuitem"]').first();
+                    $next = getAll().first();
                 } else {
                     $next = getNext($value);
                 }
@@ -1798,9 +1803,7 @@ define([
                     hide();
                     $button.focus();
                 } else {
-                    setTimeout(() => {
-                        getFirst().focus();
-                    });
+                    setFocus(getAll().first());
                 }
             }
             if (e.which === 27) { // Esc
