@@ -61,7 +61,6 @@ define([
         'general': [ // Msg.admin_cat_general
             'cp-admin-flush-cache',
             'cp-admin-update-limit',
-            'cp-admin-registration',
             'cp-admin-enableembeds',
             'cp-admin-forcemfa',
             'cp-admin-email',
@@ -72,6 +71,11 @@ define([
             'cp-admin-description',
             'cp-admin-jurisdiction',
             'cp-admin-notice',
+        ],
+        'users': [ // Msg.admin_cat_quota
+            'cp-admin-registration',
+            'cp-admin-invitation',
+            'cp-admin-users',
         ],
         'quota': [ // Msg.admin_cat_quota
             'cp-admin-defaultlimit',
@@ -1204,6 +1208,25 @@ define([
         return tableObj.table;
     };
 
+    var getBlockId = (val) => {
+        var url;
+        try {
+            url = new URL(val, ApiConfig.httpUnsafeOrigin);
+        } catch (err) { }
+        var getKey = function () {
+            var parts = val.split('/');
+            return parts[parts.length - 1];
+        };
+        var isValidBlockURL = function (url) {
+            if (!url) { return; }
+            return /* url.origin === ApiConfig.httpUnsafeOrigin && */ /^\/block\/.*/.test(url.pathname) && getKey().length === 44;
+        };
+        if (isValidBlockURL(url)) {
+            return getKey();
+        }
+        return;
+    };
+
     create['block-metadata'] = function () {
         var key = 'block-metadata';
         var $div = makeBlock(key, true); // Msg.admin_blockMetadataHint.admin_blockMetadataTitle
@@ -1236,21 +1259,10 @@ define([
                 key: '',
             };
 
-            var url;
-            try {
-                url = new URL(val, ApiConfig.httpUnsafeOrigin);
-            } catch (err) { }
-            var getKey = function () {
-                var parts = val.split('/');
-                return parts[parts.length - 1];
-            };
-            var isValidBlockURL = function (url) {
-                if (!url) { return; }
-                return /* url.origin === ApiConfig.httpUnsafeOrigin && */ /^\/block\/.*/.test(url.pathname) && getKey().length === 44;
-            };
-            if (isValidBlockURL(url)) {
+            var key = getBlockId(val);
+            if (key) {
                 state.valid = true;
-                state.key = getKey();
+                state.key = key;
             }
             return state;
         };
@@ -1483,27 +1495,342 @@ Example
     };
 
     // Msg.admin_registrationHint, .admin_registrationTitle
-    create['registration'] = makeAdminCheckbox({
-        key: 'registration',
-        getState: function () {
-            return APP.instanceStatus.restrictRegistration;
-        },
-        query: function (val, setState) {
+    // Msg.admin_registrationSsoTitle
+    Messages.admin_registrationSsoTitle = "ALSO CLOSE SSO REGISTRATION"; // XXX
+    create['registration'] = function () {
+        var refresh = function () {};
+
+        var $div = makeAdminCheckbox({
+            key: 'registration',
+            getState: function () {
+                return APP.instanceStatus.restrictRegistration;
+            },
+            query: function (val, setState) {
+                sFrameChan.query('Q_ADMIN_RPC', {
+                    cmd: 'ADMIN_DECREE',
+                    data: ['RESTRICT_REGISTRATION', [val]]
+                }, function (e, response) {
+                    if (e || response.error) {
+                        UI.warn(Messages.error);
+                        console.error(e, response);
+                    }
+                    APP.updateStatus(function () {
+                        setState(APP.instanceStatus.restrictRegistration);
+                        refresh();
+                        flushCacheNotice();
+                    });
+                });
+            }
+        })();
+
+        var $sso = makeAdminCheckbox({
+            key: 'registration-sso',
+            getState: function () {
+                return APP.instanceStatus.restrictSsoRegistration;
+            },
+            query: function (val, setState) {
+                sFrameChan.query('Q_ADMIN_RPC', {
+                    cmd: 'ADMIN_DECREE',
+                    data: ['RESTRICT_SSO_REGISTRATION', [val]]
+                }, function (e, response) {
+                    if (e || response.error) {
+                        UI.warn(Messages.error);
+                        console.error(e, response);
+                    }
+                    APP.updateStatus(function () {
+                        setState(APP.instanceStatus.restrictSsoRegistration);
+                        flushCacheNotice();
+                    });
+                });
+            }
+        })();
+        var ssoEnabled = ApiConfig.sso && ApiConfig.sso.list && ApiConfig.sso.list.length;
+        if (ssoEnabled) {
+            $sso.find('#cp-admin-registration-sso').hide();
+            $sso.find('> span.cp-sidebarlayout-description').hide();
+            $div.append($sso);
+        }
+
+        refresh = () => {
+            var closed = APP.instanceStatus.restrictRegistration;
+            if (closed) {
+                $sso.show();
+            } else {
+                $sso.hide();
+            }
+        };
+        refresh();
+
+
+        return $div;
+    };
+
+    Messages.admin_invitationCreate = "Create invitation link"; // XXX
+    Messages.admin_invitationHint = "Create invitation links to allow users to register even when registration is closed";
+    Messages.admin_invitationTitle = "Invitation links";
+    create['invitation'] = function () {
+        var key = 'invitation';
+        var $div = makeBlock(key); // Msg.admin_invitationHint, admin_invitationTitle
+
+        var list = h('table');
+        var input = h('input', { placeholder: 'ALIAS' }); // XXX
+        var button = h('button.btn.btn-primary', Messages.admin_invitationCreate);
+        var add = h('div', [input, button]);
+
+        var $b = $(button);
+
+        var metadataMgr = common.getMetadataMgr();
+        var privateData = metadataMgr.getPrivateData();
+
+        var refreshInvite = function () {};
+
+        var deleteInvite = function (id) {
             sFrameChan.query('Q_ADMIN_RPC', {
-                cmd: 'ADMIN_DECREE',
-                data: ['RESTRICT_REGISTRATION', [val]]
+                cmd: 'DELETE_INVITATION',
+                data: id
             }, function (e, response) {
+                $b.prop('disabled', false);
                 if (e || response.error) {
                     UI.warn(Messages.error);
-                    console.error(e, response);
+                    return void console.error(e, response);
                 }
-                APP.updateStatus(function () {
-                    setState(APP.instanceStatus.restrictRegistration);
-                    flushCacheNotice();
+                refreshInvite();
+            });
+        };
+        var $list = $(list);
+        refreshInvite = function () {
+            $list.empty();
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'GET_ALL_INVITATIONS',
+            }, function (e, response) {
+                if (e || response.error) {
+                    if (!response || response.error !== "ENOENT") { UI.warn(Messages.error); }
+                    console.error(e, response);
+                    return;
+                }
+                if (!Array.isArray(response)) { return; }
+                var all = response[0];
+                Object.keys(all).forEach(function (key) {
+                    var data = all[key];
+                    var url = privateData.origin + Hash.hashToHref(key, 'register');
+
+                    var del = h('button.btn.btn-danger.fa.fa-trash');
+                    $(del).click(function () {
+                        // XXX CONFIRM
+                        deleteInvite(key);
+                    });
+                    var copy = h('button.btn.btn-secondary.fa.fa-clipboard');
+                    $(copy).click(function () {
+                        var success = Clipboard.copy(url, () => {
+                            UI.log(Messages.genericCopySuccess);
+                        });
+                        if (success) { UI.log(Messages.genericCopySuccess); } // XXX merge staging delete this line
+                    });
+                    var line = h('tr', [
+                        h('td', UI.dialog.selectable(url)),
+                        h('td', data.alias),
+                        h('td', new Date(data.time).toLocaleString()),
+                        //h('td', data.createdBy),
+                        copy,
+                        del
+                    ]);
+                    $list.append(line);
                 });
             });
-        },
-    });
+        };
+        refreshInvite();
+
+        $b.on('click', () => {
+            $b.prop('disabled', true);
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'CREATE_INVITATION',
+                data: $(input).val()
+            }, function (e, response) {
+                $b.prop('disabled', false);
+                if (e || response.error) {
+                    UI.warn(Messages.error);
+                    return void console.error(e, response);
+                }
+                $(input).val('').focus();
+                refreshInvite();
+            });
+        });
+
+        $div.append([add, list]);
+        return $div;
+    };
+
+    Messages.admin_usersAdd = "Add known user"; // XXX
+    Messages.admin_usersHint = "List of known users. You can add more using the form and select automated options";
+    Messages.admin_usersTitle = "Known users";
+    Messages.admin_storeInvitedLabel = "Automatically store invited users"; // XXX
+    Messages.admin_storeSsoLabel = "Automatically store SSO users";
+    create['users'] = function () {
+        var key = 'users';
+        var $div = makeBlock(key); // Msg.admin_usersHint, admin_usersTitle
+
+        var list = h('table');
+        var userAlias = h('input', { placeholder: 'ALIAS' }); // XXX
+        var userEdPublic = h('input', { placeholder: 'USER PUBLIC KEY' }); // XXX
+        var userBlock = h('input', { placeholder: 'USER BLOCK (optional)' }); // XXX
+        var button = h('button.btn.btn-primary', Messages.admin_usersAdd);
+        var add = h('div', [userAlias, userEdPublic, userBlock, button]);
+
+        var $b = $(button);
+
+        var refreshUsers = function () {};
+
+        var $invited = makeAdminCheckbox({
+            key: 'store-invited',
+            getState: function () {
+                return APP.instanceStatus.storeInvitedUsers;
+            },
+            query: function (val, setState) {
+                sFrameChan.query('Q_ADMIN_RPC', {
+                    cmd: 'ADMIN_DECREE',
+                    data: ['STORE_INVITED_USERS', [val]]
+                }, function (e, response) {
+                    if (e || response.error) {
+                        UI.warn(Messages.error);
+                        console.error(e, response);
+                    }
+                    APP.updateStatus(function () {
+                        setState(APP.instanceStatus.storeInvitedUsers);
+                        flushCacheNotice();
+                    });
+                });
+            }
+        })();
+        $invited.find('#cp-admin-store-invited').hide();
+        $invited.find('> span.cp-sidebarlayout-description').hide();
+        $div.append($invited);
+        var $sso = makeAdminCheckbox({
+            key: 'store-sso',
+            getState: function () {
+                return APP.instanceStatus.storeSSOUsers;
+            },
+            query: function (val, setState) {
+                sFrameChan.query('Q_ADMIN_RPC', {
+                    cmd: 'ADMIN_DECREE',
+                    data: ['STORE_SSO_USERS', [val]]
+                }, function (e, response) {
+                    if (e || response.error) {
+                        UI.warn(Messages.error);
+                        console.error(e, response);
+                    }
+                    APP.updateStatus(function () {
+                        setState(APP.instanceStatus.storeSSOUsers);
+                        flushCacheNotice();
+                    });
+                });
+            }
+        })();
+        var ssoEnabled = ApiConfig.sso && ApiConfig.sso.list && ApiConfig.sso.list.length;
+        if (ssoEnabled) {
+            $sso.find('#cp-admin-store-sso').hide();
+            $sso.find('> span.cp-sidebarlayout-description').hide();
+            $div.append($sso);
+        }
+
+        var deleteUser = function (/*id*/) {
+            /*
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'DELETE_KNOWN_USER',
+                data: id
+            }, function (e, response) {
+                $b.prop('disabled', false);
+                if (e || response.error) {
+                    UI.warn(Messages.error);
+                    return void console.error(e, response);
+                }
+                refreshUsers();
+            });*/
+        };
+        var $list = $(list);
+        refreshUsers = function () {
+            $list.empty();
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'GET_ALL_USERS',
+            }, function (e, response) {
+                if (e || response.error) {
+                    if (!response || response.error !== "ENOENT") { UI.warn(Messages.error); }
+                    console.error(e, response);
+                    return;
+                }
+                if (!Array.isArray(response)) { return; }
+                var all = response[0];
+                console.log(all);
+                Object.keys(all).forEach(function (key) {
+                    var data = all[key];
+
+                    var del = h('button.btn.btn-danger.fa.fa-trash');
+                    $(del).click(function () {
+                        // XXX CONFIRM
+                        deleteUser(key);
+                    });
+                    var copy = h('button.btn.btn-secondary.fa.fa-clipboard');
+                    $(copy).click(function () {
+                        var success = Clipboard.copy(key, () => {
+                            UI.log(Messages.genericCopySuccess);
+                        });
+                        if (success) { UI.log(Messages.genericCopySuccess); } // XXX merge staging delete this line
+                    });
+                    var line = h('tr', [
+                        h('td', data.alias),
+                        h('td', h('pre', key)),
+                        h('td', new Date(data.time).toLocaleString()),
+                        //h('td', data.createdBy),
+                        copy,
+                        del
+                    ]);
+                    $list.append(line);
+                });
+            });
+        };
+        refreshUsers();
+
+        $b.on('click', () => {
+            $b.prop('disabled', true);
+            // XXX CHECK ALL VALUES ARE AVAILABLE
+            // XXX PARSE FULL KEY INTO EDPUBLIC
+            // XXX PARSE BLOCK HASH INTO BLOCK KEY
+            // XXX GET BLOCK FROM PIN LOG?
+
+            var done = () => { $b.prop('disabled', false); };
+
+            var keyStr = $(userEdPublic).val().trim();
+            var parsed = keyStr && Keys.parseUser(keyStr);
+            if (!parsed || !parsed.edPublic) {
+                done();
+                return void UI.warn(Messages.admin_invalKey);
+            }
+            var block = getBlockId($(userBlock).val());
+
+            var obj = {
+                alias: $(userAlias).val(),
+                block: block,
+                edPublic: parsed.edPublic,
+                name: parsed.user
+            };
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'ADD_KNOWN_USER',
+                data: obj
+            }, function (e, response) {
+                done();
+                if (e || response.error) {
+                    UI.warn(Messages.error);
+                    return void console.error(e, response);
+                }
+                $(userAlias).val('').focus();
+                $(userBlock).val('');
+                $(userEdPublic).val('');
+                refreshUsers();
+            });
+        });
+
+        $div.append([add, list]);
+        return $div;
+    };
 
     // Msg.admin_enableembedsHint, .admin_enableembedsTitle
     create['enableembeds'] = makeAdminCheckbox({

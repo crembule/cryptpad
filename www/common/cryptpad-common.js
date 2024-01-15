@@ -1912,6 +1912,7 @@ define([
 
     common.deleteAccount = function (data, cb) {
         data = data || {};
+        common.CP_onAccountDeletion = true;
 
         var bytes = data.bytes; // From Scrypt
         var auth = data.auth; // MFA data
@@ -2058,9 +2059,11 @@ define([
                 User_hash: newHash,
                 edPublic: edPublic,
             };
+            var userData = [undefined, edPublic];
             var sessionToken = LocalStore.getSessionToken() || undefined;
             Block.writeLoginBlock({
                 auth: auth,
+                userData: userData,
                 blockKeys: blockKeys,
                 oldBlockKeys: oldBlockKeys,
                 content: content,
@@ -2123,6 +2126,7 @@ define([
             Block.removeLoginBlock({
                 reason: 'PASSWORD_CHANGE',
                 auth: auth,
+                edPublic: edPublic,
                 blockKeys: oldBlockKeys,
             }, waitFor(function (err) {
                 if (err) { return void console.error(err); }
@@ -2338,7 +2342,7 @@ define([
         LocalStore.logout(function () {
             common.stopWorker();
             common.drive.onDeleted.fire(data.reason);
-        });
+        }, true);
     };
 
     var lastPing = +new Date();
@@ -2896,13 +2900,17 @@ define([
                 if (!o && n) {
                     LocalStore.loginReload();
                 } else if (o && !n) {
-                    LocalStore.logout();
+                    if (!common.CP_onAccountDeletion) { LocalStore.logout(); }
                 } else if (o && n && o !== n) {
                     common.passwordUpdated = true;
                     window.location.reload();
                 }
             });
+            common.drive.onDeleted.reg(function () {
+                common.CP_onAccountDeletion = true;
+            });
             LocalStore.onLogout(function () {
+                if (common.CP_onAccountDeletion) { return; }
                 console.log('onLogout: disconnect');
                 common.stopWorker();
             });

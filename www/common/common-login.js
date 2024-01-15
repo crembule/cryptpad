@@ -287,7 +287,7 @@ define([
     };
 
     Exports.loginOrRegister = function (config, cb) {
-        let { uname, passwd, isRegister, onOTP, ssoAuth } = config;
+        let { uname, passwd, token, isRegister, onOTP, ssoAuth } = config;
         if (typeof(cb) !== 'function') { return; }
 
         // Usernames are all lowercase. No going back on this one
@@ -516,17 +516,23 @@ define([
             // FIXME We currently can't create an account with OTP by default
             // NOTE If we ever want to do that for SSO accounts it will require major changes
             //      because writeLoginBlock only supports one type of authentication at a time
+
+            // XXX userData always sent, maybe only for SSO and token?
+            // Only SSO users and invited users can be soted by the server and it needs to be configured
+            var userData = [uname, RT.proxy.edPublic];
             Block.writeLoginBlock({
                 pw: Boolean(passwd),
                 auth: ssoAuth,
                 blockKeys: blockKeys,
+                token: token,
                 content: toPublish,
+                userData
             }, waitFor(function (e, res) {
                 if (e === 'SSO_NO_SESSION') { return; } // account created, need re-login
                 if (e) {
-                    console.error(e);
+                    console.error(e, res);
                     waitFor.abort();
-                    return void cb(e);
+                    return void cb(res ? (res.errorCode || res.error) : e);
                 }
                 if (res && res.bearer) {
                     LocalStore.setSessionToken(res.bearer);
