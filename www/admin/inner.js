@@ -1574,8 +1574,9 @@ Example
 
         var list = h('table');
         var input = h('input', { placeholder: 'ALIAS' }); // XXX
+        var inputEmail = h('input', { placeholder: 'EMAIL' }); // XXX
         var button = h('button.btn.btn-primary', Messages.admin_invitationCreate);
-        var add = h('div', [input, button]);
+        var add = h('div', [input, inputEmail, button]);
 
         var $b = $(button);
 
@@ -1583,6 +1584,11 @@ Example
         var privateData = metadataMgr.getPrivateData();
 
         var refreshInvite = function () {};
+
+        var refresh = h('div', h('button.btn.btn-primary', Messages.oo_refresh));
+        Util.onClickEnter($(refresh).find('button'), function () {
+            refreshInvite();
+        });
 
         var deleteInvite = function (id) {
             sFrameChan.query('Q_ADMIN_RPC', {
@@ -1641,10 +1647,15 @@ Example
         refreshInvite();
 
         $b.on('click', () => {
+            var alias = $(input).val().trim();
+            if (!alias) { return void UI.warn(Messages.error); } // XXX  bettter message?
             $b.prop('disabled', true);
             sFrameChan.query('Q_ADMIN_RPC', {
                 cmd: 'CREATE_INVITATION',
-                data: $(input).val()
+                data: {
+                    alias,
+                    email: $(inputEmail).val()
+                }
             }, function (e, response) {
                 $b.prop('disabled', false);
                 if (e || response.error) {
@@ -1656,7 +1667,7 @@ Example
             });
         });
 
-        $div.append([add, list]);
+        $div.append([add, refresh, list]);
         return $div;
     };
 
@@ -1671,31 +1682,37 @@ Example
 
         var list = h('table');
         var userAlias = h('input', { placeholder: 'ALIAS' }); // XXX
+        var userEmail = h('input', { placeholder: 'EMAIL' }); // XXX
         var userEdPublic = h('input', { placeholder: 'USER PUBLIC KEY' }); // XXX
         var userBlock = h('input', { placeholder: 'USER BLOCK (optional)' }); // XXX
         var button = h('button.btn.btn-primary', Messages.admin_usersAdd);
-        var add = h('div', [userAlias, userEdPublic, userBlock, button]);
+        var add = h('div', [userAlias, userEmail, userEdPublic, userBlock, button]);
 
         var $b = $(button);
 
         var refreshUsers = function () {};
 
+        var refresh = h('div', h('button.btn.btn-primary', Messages.oo_refresh));
+        Util.onClickEnter($(refresh).find('button'), function () {
+            refreshUsers();
+        });
+
         var $invited = makeAdminCheckbox({
             key: 'store-invited',
             getState: function () {
-                return APP.instanceStatus.storeInvitedUsers;
+                return !APP.instanceStatus.dontStoreInvitedUsers;
             },
             query: function (val, setState) {
                 sFrameChan.query('Q_ADMIN_RPC', {
                     cmd: 'ADMIN_DECREE',
-                    data: ['STORE_INVITED_USERS', [val]]
+                    data: ['DISABLE_STORE_INVITED_USERS', [!val]]
                 }, function (e, response) {
                     if (e || response.error) {
                         UI.warn(Messages.error);
                         console.error(e, response);
                     }
                     APP.updateStatus(function () {
-                        setState(APP.instanceStatus.storeInvitedUsers);
+                        setState(!APP.instanceStatus.dontStoreInvitedUsers);
                         flushCacheNotice();
                     });
                 });
@@ -1707,19 +1724,19 @@ Example
         var $sso = makeAdminCheckbox({
             key: 'store-sso',
             getState: function () {
-                return APP.instanceStatus.storeSSOUsers;
+                return !APP.instanceStatus.dontStoreSSOUsers;
             },
             query: function (val, setState) {
                 sFrameChan.query('Q_ADMIN_RPC', {
                     cmd: 'ADMIN_DECREE',
-                    data: ['STORE_SSO_USERS', [val]]
+                    data: ['DISABLE_STORE_SSO_USERS', [!val]]
                 }, function (e, response) {
                     if (e || response.error) {
                         UI.warn(Messages.error);
                         console.error(e, response);
                     }
                     APP.updateStatus(function () {
-                        setState(APP.instanceStatus.storeSSOUsers);
+                        setState(!APP.instanceStatus.dontStoreSSOUsers);
                         flushCacheNotice();
                     });
                 });
@@ -1732,19 +1749,32 @@ Example
             $div.append($sso);
         }
 
-        var deleteUser = function (/*id*/) {
-            /*
+        var deleteUser = function (id) {
             sFrameChan.query('Q_ADMIN_RPC', {
                 cmd: 'DELETE_KNOWN_USER',
                 data: id
             }, function (e, response) {
-                $b.prop('disabled', false);
                 if (e || response.error) {
                     UI.warn(Messages.error);
                     return void console.error(e, response);
                 }
                 refreshUsers();
-            });*/
+            });
+        };
+        var updateUser = function (key, changes) {
+            sFrameChan.query('Q_ADMIN_RPC', {
+                cmd: 'UPDATE_KNOWN_USER',
+                data: {
+                    edPublic: key,
+                    changes: changes
+                }
+            }, function (e, response) {
+                if (e || response.error) {
+                    UI.warn(Messages.error);
+                    return void console.error(e, response);
+                }
+                refreshUsers();
+            });
         };
         var $list = $(list);
         refreshUsers = function () {
@@ -1759,14 +1789,18 @@ Example
                 }
                 if (!Array.isArray(response)) { return; }
                 var all = response[0];
-                console.log(all);
                 Object.keys(all).forEach(function (key) {
                     var data = all[key];
-
+                    var editUser = () => {};
                     var del = h('button.btn.btn-danger.fa.fa-trash');
                     $(del).click(function () {
                         // XXX CONFIRM
                         deleteUser(key);
+                    });
+                    var edit = h('button.btn.btn-secondary.fa.fa-pencil');
+                    $(edit).click(function () {
+                        // XXX CONFIRM
+                        editUser();
                     });
                     var copy = h('button.btn.btn-secondary.fa.fa-clipboard');
                     $(copy).click(function () {
@@ -1775,13 +1809,46 @@ Example
                         });
                         if (success) { UI.log(Messages.genericCopySuccess); } // XXX merge staging delete this line
                     });
+
+                    var alias = h('td', data.alias);
+                    var email = h('td', data.email);
+                    var actions = h('td', [copy, edit, del]);
+                    var $alias = $(alias);
+                    var $email = $(email);
+                    var $actions = $(actions);
+
+                    editUser = () => {
+                        var aliasInput = h('input');
+                        var emailInput = h('input');
+                        $(aliasInput).val(data.alias);
+                        $(emailInput).val(data.email);
+                        var save = h('button.btn.btn-primary', Messages.settings_save);
+                        var cancel = h('button.btn.btn-secondary', Messages.cancel);
+                        Util.onClickEnter($(save), function () {
+                            var aliasVal = $(aliasInput).val().trim();
+                            if (!aliasVal) { return void UI.warn(Messages.error); }
+                            var changes = {
+                                alias: aliasVal,
+                                email: $(emailInput).val().trim()
+                            };
+                            updateUser(key, changes);
+                        });
+                        Util.onClickEnter($(cancel), function () {
+                            refreshUsers();
+                        });
+                        $alias.html('').append(aliasInput);
+                        $email.html('').append(emailInput);
+                        $actions.html('').append([save, cancel]);
+                        console.warn(alias, email, $alias, $email, aliasInput);
+                    };
+
                     var line = h('tr', [
-                        h('td', data.alias),
+                        alias,
+                        email,
                         h('td', h('pre', key)),
                         h('td', new Date(data.time).toLocaleString()),
                         //h('td', data.createdBy),
-                        copy,
-                        del
+                        actions
                     ]);
                     $list.append(line);
                 });
@@ -1790,13 +1857,12 @@ Example
         refreshUsers();
 
         $b.on('click', () => {
+            var alias = $(userAlias).val().trim();
+            if (!alias) { return void UI.warn(Messages.error); } // XXX  bettter message?
             $b.prop('disabled', true);
-            // XXX CHECK ALL VALUES ARE AVAILABLE
-            // XXX PARSE FULL KEY INTO EDPUBLIC
-            // XXX PARSE BLOCK HASH INTO BLOCK KEY
-            // XXX GET BLOCK FROM PIN LOG?
 
             var done = () => { $b.prop('disabled', false); };
+            // TODO Get "block" from pin log?
 
             var keyStr = $(userEdPublic).val().trim();
             var parsed = keyStr && Keys.parseUser(keyStr);
@@ -1807,7 +1873,8 @@ Example
             var block = getBlockId($(userBlock).val());
 
             var obj = {
-                alias: $(userAlias).val(),
+                alias,
+                email: $(userEmail).val(),
                 block: block,
                 edPublic: parsed.edPublic,
                 name: parsed.user
@@ -1828,7 +1895,7 @@ Example
             });
         });
 
-        $div.append([add, list]);
+        $div.append([add, refresh, list]);
         return $div;
     };
 
