@@ -949,6 +949,7 @@ define([
             var privateData = ctx.metadataMgr.getPrivateData();
             funcs.addShortcuts(window, Boolean(privateData.app));
 
+
             var mt = Util.find(privateData, ['settings', 'general', 'mediatag-size']);
             if (MT.MediaTag && typeof(mt) === "number") {
                 var maxMtSize = mt === -1 ? Infinity : mt * 1024 * 1024;
@@ -1052,6 +1053,13 @@ define([
             Mailbox.create(funcs);
 
             cb(funcs);
+
+        var fallback = "🚨 Due to an issue with our storage backend all existing documents and drives are in read-only mode on CryptPad.fr."; // XXX
+        $(h('div#bigdata.cp-banner.cp-banner-danger.cp-app-drive-content-info-box', { style: 'display:block;height:auto;text-transform:none;text-align:center;margin: 10px 0'}, [
+            Messages.bigdata_error || fallback, h('br'),
+            h('a', { href:'https://uptime.cryptpad.org/status/cryptpad', target:"_blank"}, "https://uptime.cryptpad.org/status/cryptpad")
+        ])).prependTo($('body'));
+
         });
     } };
 });

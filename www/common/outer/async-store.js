@@ -1900,6 +1900,7 @@ define([
                 metadata: data.metadata,
                 network: store.network || store.networkPromise,
                 websocketURL: NetConfig.getWebsocketURL(),
+                readOnly: true, // XXX
                 //readOnly: data.readOnly,
                 onConnect: function (wc, sendMessage) {
                     channel.sendMessage = function (msg, cId, cb) {
@@ -2872,9 +2873,9 @@ define([
                 if (typeof(cb) === 'function') { cb(returned); }
 
                 store.offline = false;
-                sendDriveEvent('NETWORK_RECONNECT'); // Tell inner that we're now online
+                //sendDriveEvent('NETWORK_RECONNECT'); // Tell inner that we're now online
                 broadcast([], "UPDATE_METADATA");
-                broadcast([], "STORE_READY", returned);
+                //broadcast([], "STORE_READY", returned);
 
                 if (typeof(proxy.uid) !== 'string' || proxy.uid.length !== 32) {
                     // even anonymous users should have a persistent, unique-ish id
@@ -2954,7 +2955,7 @@ define([
                 websocketURL: NetConfig.getWebsocketURL(),
                 network: store.network,
                 channel: secret.channel,
-                readOnly: false,
+                readOnly: true, // XXX
                 validateKey: secret.keys.validateKey || undefined,
                 crypto: Crypto.createEncryptor(secret.keys),
                 Cache: Cache,
@@ -3073,11 +3074,12 @@ define([
                 sendDriveEvent('NETWORK_DISCONNECT');
                 broadcast([], "UPDATE_METADATA");
             });
-            rt.proxy.on('reconnect', function () {
+            /*rt.proxy.on('reconnect', function () {
                 store.offline = false;
                 sendDriveEvent('NETWORK_RECONNECT');
                 broadcast([], "UPDATE_METADATA");
             });
+            */
 
             // Ping clients regularly to make sure one tab was not closed without sending a removeClient()
             // command. This allow us to avoid phantom viewers in pads.

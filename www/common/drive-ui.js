@@ -280,6 +280,7 @@ define([
     // If isHistory is true, update the "APP.history" flag
     // isSf is used to detect offline shared folders: setEditable is called on displayDirectory
     var setEditable = function (state, isHistory, isSf) {
+        state = false; // XXX
         if (APP.closed || !APP.$content || !$.contains(document.documentElement, APP.$content[0])) { return; }
         if (isHistory) {
             APP.history = !state;
@@ -638,6 +639,12 @@ define([
         var $content = APP.$content = $("#cp-app-drive-content");
         var $contentContainer = APP.$content = $("#cp-app-drive-content-container");
         var $appContainer = $(".cp-app-drive-container");
+        var fallback = "🚨 Due to an issue with our storage backend all existing documents and drives are in read-only mode on CryptPad.fr."; // XXX
+        $('#bigdata').remove();
+        $(h('div#bigdata.cp-banner.cp-banner-danger.cp-app-drive-content-info-box', { style: 'display:block;height:auto;text-transform:none;text-align:center;margin: 10px 0'}, [
+            Messages.bigdata_error || fallback, h('br'),
+            h('a', { href:'https://uptime.cryptpad.org/status/cryptpad', target:"_blank"}, "https://uptime.cryptpad.org/status/cryptpad")
+        ])).insertAfter($('#cp-toolbar'));
         var $driveToolbar = APP.toolbar.$bottom;
         var $contextMenu = createContextMenu(common).appendTo($appContainer);
 
@@ -705,6 +712,7 @@ define([
         }
 
         APP.editable = !APP.readOnly;
+        APP.editable = false; // XXX
         var appStatus = {
             isReady: true,
             _onReady: [],
@@ -4243,6 +4251,7 @@ define([
                 $content.prepend($readOnly.clone());
                 readOnlyFolder = true;
             }
+                readOnlyFolder = true; // XXX
             $content.data('readOnlyFolder', readOnlyFolder);
 
             if (!readOnlyFolder) {

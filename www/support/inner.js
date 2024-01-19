@@ -351,7 +351,7 @@ define([
         var addItem = function (cssClass) {
             var item = cssClass.slice(11); // remove 'cp-support-'
             if (typeof (create[item]) === "function") {
-                $rightside.append(create[item]());
+                //$rightside.append(create[item]());
             }
         };
         for (var cat in categories) {

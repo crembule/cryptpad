@@ -740,6 +740,7 @@ define([
                 secret.keys = secret.key;
                 readOnly = false;
             }
+            readOnly = true; // XXX
             Utils.crypto = Utils.Crypto.createEncryptor(Utils.secret.keys);
             var parsed = Utils.Hash.parsePadUrl(currentPad.href);
             if (!parsed.type) { throw new Error(); }

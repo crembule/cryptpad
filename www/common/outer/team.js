@@ -66,10 +66,10 @@ define([
                 team.offline = true;
                 team.sendEvent('NETWORK_DISCONNECT', team.id);
             });
-            proxy.on('reconnect', function () {
+            /*proxy.on('reconnect', function () {
                 team.offline = false;
                 team.sendEvent('NETWORK_RECONNECT', team.id);
-            });
+            });*/
         }
         proxy.on('change', [], function (o, n, p) {
             if (fId) {
@@ -689,6 +689,7 @@ define([
         var chatHashes = Hash.getHashes(chatSecret);
 
         var config = {
+            readOnly: true,
             network: ctx.store.network,
             channel: secret.channel,
             data: {},
@@ -821,6 +822,8 @@ define([
                     });
                     ctx.updateMetadata();
                     cb();
+                    team.offline = true;
+                    team.sendEvent('NETWORK_DISCONNECT', team.id);
                 });
             }).on('error', function (info) {
                 if (info && typeof (info.loaded) !== "undefined"  && !info.loaded) {
@@ -1087,6 +1090,7 @@ define([
         var state = team.roster.getState() || {};
         var md = state.metadata || {};
         md.offline = team.offline;
+        md.offline = true; // XXX
         cb(md);
     };
 
@@ -2062,7 +2066,7 @@ define([
             });
 
             openCachedTeamChat();
-            onStoreReady.fire();
+            //onStoreReady.fire();
         };
 
         team.getTeam = function (id) {
@@ -2157,6 +2161,7 @@ define([
                 // If failure to load the team, don't send it
                 if (ctx.teams[id]) {
                     t[id].offline = ctx.teams[id].offline;
+                    t[id].offline = true; // XXX
                     return;
                 }
                 t[id].error = true;
