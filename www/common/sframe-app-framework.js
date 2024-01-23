@@ -1127,7 +1127,7 @@ define([
 
                 // Call this, when the user wants to add an image from drive.
                 insertImage: function(data, cb) {
-                    require(['/common/image-dialog.js'], function(imageDialog) {
+                    require(['/common/inner/image-dialog.js'], function(imageDialog) {
                         imageDialog.openImageDialog(common, integrationChannel, data, cb);
                     });
                 },
