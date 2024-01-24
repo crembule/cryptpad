@@ -2158,7 +2158,7 @@ define([
         };
         var getIcon = UI.getIcon;
 
-        var addTitle = function (element, $name) {
+        var addTitleIcon = function (element, $name) {
             var icon = getFileIcon(element);
 
             $(icon).addClass('cp-app-drive-element-icon');
@@ -2217,13 +2217,15 @@ define([
             var name = manager.getTitle(element);
 
             // The element with the class '.name' is underlined when the 'li' is hovered
-            var $name = $('<span>', {'class': 'cp-app-drive-element-name'}).text(name);
+            var $name = $(h('span.cp-app-drive-element-name', [
+                h('span.cp-app-drive-element-name-text', name)
+            ]));
             $element.append($name);
             $element.append($state);
             if (APP.mobile()) {
                 $element.append($menu);
             }
-            
+
             if (getViewMode() === 'grid') {
                 $element.attr('title', name);
             }
@@ -2236,7 +2238,7 @@ define([
                 $element.prepend(img);
                 $(img).addClass('cp-app-drive-element-grid cp-app-drive-element-thumbnail');
                 $(img).attr("draggable", false);
-                addTitle(element, $name);
+                addTitleIcon(element, $name);
             } else {
                 common.displayThumbnail(href || data.roHref, data.channel, data.password, $element, function ($thumb) {
                     // Called only if the thumbnail exists
@@ -2245,7 +2247,7 @@ define([
                     $thumb.addClass('cp-app-drive-element-grid cp-app-drive-element-thumbnail');
                     $thumb.attr("draggable", false);
                     thumbsUrls[element] = $thumb[0].src;
-                    addTitle(element, $name);
+                    addTitleIcon(element, $name);
                 });
             }
 
