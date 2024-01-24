@@ -667,6 +667,17 @@
                         font-size: 18px;
                     }
                 }
+                .cp-app-drive-element-icon {
+                    font-size: 12px !important;
+                    float: left !important;
+                    margin: 5px !important;
+                }
+                .cp-app-drive-element-name-icon {
+                    text-align: center !important;
+                    float: center !important;
+                    max-width: fit-content !important;
+                }
+
                 .cp-app-drive-element-state {
                     left: 3px;
                 }
@@ -678,7 +689,7 @@
                     max-height: 100px;
                     background: @cp_drive-thumb-bg;
                     & ~ .fa, & ~ .cptools {
-                        display: inline;
+                        display: none;
                         font-size: 17px;
                         position: absolute;
                         top: 3px;
@@ -701,6 +712,9 @@
         }
 
         div.cp-app-drive-content-list {
+            .cp-app-drive-element-icon {
+                display: none !important;
+            }
             .cp-app-drive-element-grid {
                 display: none;
             }
@@ -730,6 +744,7 @@
                     display: inline-block;
                     white-space: nowrap;
                     &:first-child, &.cp-icon {
+                        display: block-inline;
                         min-width: 20px;
                         text-align: center;
                         font-size: 18px;
