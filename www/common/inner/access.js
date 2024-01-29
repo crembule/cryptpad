@@ -829,7 +829,6 @@ define([
     };
 
     var getAccessTab = function (Env, data, opts, _cb) {
-        var oldPass = data.password;
         var cb = Util.once(Util.mkAsync(_cb));
         var common = Env.common;
         opts = opts || {};
@@ -918,7 +917,8 @@ define([
                 var pLocked = false;
                 $(passwordOk).click(function () {
                     var newPass = $(newPassword).find('input').val();
-                    if (oldPass === newPass || !oldPass && !newPass) {
+                    if (data.password === newPass ||
+                        (!data.password && !newPass)) {
                         return void UI.alert(Messages.properties_passwordSame);
                     }
                     if (pLocked) { return; }
@@ -1017,8 +1017,6 @@ define([
                                         return sframeChan.query('Q_PASSWORD_CHECK', newPass, () => { common.gotoURL(_href);  });
                                     }
                                     common.gotoURL(_href);
-                                } else {
-                                    oldPass = newPass;
                                 }
                             });
                         });
