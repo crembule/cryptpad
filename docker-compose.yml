@@ -7,7 +7,8 @@ version: '3.8'
 
 services:
   cryptpad:
-    image: "cryptpad/cryptpad:version-5.5.0"
+    # image: "cryptpad/cryptpad:version-5.5.0"
+    image: "install-onlyoffice"
     hostname: cryptpad
 
     environment:
@@ -21,6 +22,7 @@ services:
       - ./customize:/cryptpad/customize
       - ./data/data:/cryptpad/data
       - ./data/files:/cryptpad/datastore
+      - ./onlyoffice-dist:/cryptpad/www/common/onlyoffice/dist
 
     ports:
       - "3000:3000"
